@@ -569,12 +569,3 @@ extern "C" bool glslcInitialize(GLSLCcompileObject* compileObject);
 extern "C" void glslcSetAllocator(GLSLCallocateFunction allocate, GLSLCfreeFunction free, GLSLCreallocateFunction reallocate, void* userPtr);
 extern "C" bool glslcSetDebugDataHash(void*, void*);
 extern "C" bool glslcWriteOutputsToDiskForDebugger(const char* outputPath, void* outputs, uint32_t numOutputs, uint32_t* result);
-
-/*
-    GLSLC requires the following imports
-
-    extern "C" void* glslc_Alloc(size_t size);
-    extern "C" void glslc_Free(void* address);
-    extern "C" void* glslc_Realloc(void* address, size_t size);
-
-*/

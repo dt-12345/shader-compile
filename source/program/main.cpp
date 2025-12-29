@@ -24,9 +24,10 @@ bool EndsWith(const char* str, const char* suffix) {
 
 bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage stage = NVN_SHADER_STAGE_LARGE) {
     EXL_ASSERT(g_Heap != nullptr);
+    EXL_ASSERT(inputPath != nullptr && outputPath != nullptr);
 
     if (stage == NVN_SHADER_STAGE_LARGE) {
-        for (int i = 0; i < 6; ++i) {
+        for (s32 i = 0; i < 6; ++i) {
             if (EndsWith(inputPath, sShaderExtensions[i])) {
                 stage = static_cast<NVNshaderStage>(i);
                 break;
@@ -55,77 +56,31 @@ bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage
         res = WriteFile(outputPath, outputData, binPtr->headers[0].genericHeader.common.size);
     }
 
-    g_Heap->free(shaderSource);
     glslcFinalize(&compileObject);
+    g_Heap->free(shaderSource);
     return res;
 }
 
-struct ShaderSet {
-    const char* vertexPath;
-    const char* tessControlPath;
-    const char* tessEvalPath;
-    const char* geometryPath;
-    const char* fragmentPath;
-};
-
-bool CompileShader(const ShaderSet* inputPaths, const ShaderSet* outputPaths) {
+bool CompileShader(const char* const* inputPaths, const char* const* outputPaths) {
     EXL_ASSERT(g_Heap != nullptr);
     EXL_ASSERT(inputPaths != nullptr && outputPaths != nullptr);
 
     char* sources[5] = {};
     NVNshaderStage stages[5] = {};
     const char* outputs[5] = {};
-    int count = 0;
+    s32 count = 0;
     bool res = false;
     
-    if (inputPaths->vertexPath && outputPaths->vertexPath) {
-        char* shaderSource = static_cast<char*>(ReadFile(inputPaths->vertexPath, g_Heap));
-        if (shaderSource != nullptr) {
-            sources[count] = shaderSource;
-            outputs[count] = outputPaths->vertexPath;
-            stages[count++] = NVN_SHADER_STAGE_VERTEX;
-        } else {
-            Logging.Log("Failed to read file %s", inputPaths->vertexPath);
-        }
-    }
-    if (inputPaths->tessControlPath && outputPaths->tessControlPath) {
-        char* shaderSource = static_cast<char*>(ReadFile(inputPaths->tessControlPath, g_Heap));
-        if (shaderSource != nullptr) {
-            sources[count] = shaderSource;
-            outputs[count] = outputPaths->tessControlPath;
-            stages[count++] = NVN_SHADER_STAGE_TESS_CONTROL;
-        } else {
-            Logging.Log("Failed to read file %s", inputPaths->tessControlPath);
-        }
-    }
-    if (inputPaths->tessEvalPath && outputPaths->tessEvalPath) {
-        char* shaderSource = static_cast<char*>(ReadFile(inputPaths->tessEvalPath, g_Heap));
-        if (shaderSource != nullptr) {
-            sources[count] = shaderSource;
-            outputs[count] = outputPaths->tessEvalPath;
-            stages[count++] = NVN_SHADER_STAGE_TESS_EVALUATION;
-        } else {
-            Logging.Log("Failed to read file %s", inputPaths->tessEvalPath);
-        }
-    }
-    if (inputPaths->geometryPath && outputPaths->geometryPath) {
-        char* shaderSource = static_cast<char*>(ReadFile(inputPaths->geometryPath, g_Heap));
-        if (shaderSource != nullptr) {
-            sources[count] = shaderSource;
-            outputs[count] = outputPaths->geometryPath;
-            stages[count++] = NVN_SHADER_STAGE_GEOMETRY;
-        } else {
-            Logging.Log("Failed to read file %s", inputPaths->geometryPath);
-        }
-    }
-    if (inputPaths->fragmentPath && outputPaths->fragmentPath) {
-        char* shaderSource = static_cast<char*>(ReadFile(inputPaths->fragmentPath, g_Heap));
-        if (shaderSource != nullptr) {
-            sources[count] = shaderSource;
-            outputs[count] = outputPaths->fragmentPath;
-            stages[count++] = NVN_SHADER_STAGE_FRAGMENT;
-        } else {
-            Logging.Log("Failed to read file %s", inputPaths->fragmentPath);
+    for (s32 i = 0; i < 5; ++i) {
+        if (inputPaths[i] != nullptr && outputPaths[i] != nullptr) {
+            char* shaderSource = static_cast<char*>(ReadFile(inputPaths[i], g_Heap));
+            if (shaderSource != nullptr) {
+                sources[count] = shaderSource;
+                outputs[count] = outputPaths[i];
+                stages[count++] = static_cast<NVNshaderStage>(i);
+            } else {
+                Logging.Log("Failed to read file %s", inputPaths[i]);
+            }
         }
     }
 
@@ -135,7 +90,7 @@ bool CompileShader(const ShaderSet* inputPaths, const ShaderSet* outputPaths) {
         Logging.Log("Failed to compile shader");
     } else {
         res = true;
-        for (int i = 0; i < count; ++i) {
+        for (s32 i = 0; i < count; ++i) {
             if (outputs[i] != nullptr) {
                 const auto* binPtr = compileObject.lastCompiledResults->glslcOutput;
                 const char* outputData = reinterpret_cast<const char*>(binPtr) + binPtr->headers[i].genericHeader.common.dataOffset;
@@ -144,21 +99,11 @@ bool CompileShader(const ShaderSet* inputPaths, const ShaderSet* outputPaths) {
         }
     }
 
-    glslc_Free(&compileObject);
-    if (sources[0] != nullptr) {
-        g_Heap->free(sources[0]);
-    }
-    if (sources[1] != nullptr) {
-        g_Heap->free(sources[1]);
-    }
-    if (sources[2] != nullptr) {
-        g_Heap->free(sources[2]);
-    }
-    if (sources[3] != nullptr) {
-        g_Heap->free(sources[3]);
-    }
-    if (sources[4] != nullptr) {
-        g_Heap->free(sources[4]);
+    glslcFinalize(&compileObject);
+    for (s32 i = 0; i < 5; ++i) {
+        if (sources[i] != nullptr) {
+            g_Heap->free(sources[i]);
+        }
     }
 
     return res;
@@ -208,7 +153,7 @@ HOOK_DEFINE_INLINE(AppMain) {
                     char inputPaths[5][nn::fs::MaxDirectoryEntryNameSize + 1] = {};
                     char outputPaths[5][nn::fs::MaxDirectoryEntryNameSize + 1] = {};
 
-                    const char* extensions[5] = { "vert", "tesc", "tese", "geom", "frag", };
+                    const char* extensions[5] = { "vert", "frag", "geom", "tesc", "tese", };
                     for (s32 j = 0; j < 5; ++j) {
                         const s32 inputPathSize = nn::util::SNPrintf(inputPaths[j], sizeof(inputPaths[j]), "sd:/shaders/%s.%s", basePath, extensions[j]);
                         inputPaths[j][inputPathSize] = '\0';
@@ -216,28 +161,27 @@ HOOK_DEFINE_INLINE(AppMain) {
                         outputPaths[j][outputPathSize] = '\0';
                     }
 
-                    ShaderSet inputs = {
+                    const char* inputs[] = {
                         inputPaths[0], inputPaths[1], inputPaths[2], inputPaths[3], inputPaths[4],
                     };
-                    ShaderSet outputs = {
+                    const char* outputs[] = {
                         outputPaths[0], outputPaths[1], outputPaths[2], outputPaths[3], outputPaths[4],
                     };
-
                     bool allExists = true;
                     for (s32 j = 0; j < 5; ++j) {
                         nn::fs::FileHandle inputHandle{};
                         // if this input file doesn't exist, ignore
-                        if (nn::fs::OpenFile(&inputHandle, inputPaths[j], nn::fs::OpenMode_Read) == 0) {
+                        if (nn::fs::OpenFile(&inputHandle, inputs[j], nn::fs::OpenMode_Read) == 0) {
                             nn::fs::CloseFile(inputHandle);
                         } else {
+                            inputs[j] = outputs[j] = nullptr;
                             continue;
                         }
                         nn::fs::FileHandle outputHandle{};
-                        if (nn::fs::OpenFile(&outputHandle, outputPaths[j], nn::fs::OpenMode_Read) == 0) {
+                        if (nn::fs::OpenFile(&outputHandle, outputs[j], nn::fs::OpenMode_Read) == 0) {
                             nn::fs::CloseFile(outputHandle);
                         } else {
                             allExists = false;
-                            break;
                         }
                     }
 
@@ -246,7 +190,7 @@ HOOK_DEFINE_INLINE(AppMain) {
                     }
 
                     Logging.Log("Compiling %s", file.m_Name);
-                    if (CompileShader(&inputs, &outputs)) {
+                    if (CompileShader(inputs, outputs)) {
                         Logging.Log("Saved %s and related shaders", file.m_Name);
                     } else {
                         Logging.Log("Failed to compile %s and related shaders", file.m_Name);
@@ -277,6 +221,7 @@ HOOK_DEFINE_INLINE(AppMain) {
             }
 
             nn::fs::CloseDirectory(handle);
+            nn::os::SleepThread(nn::TimeSpan::FromSeconds(1));
         }
     }
 };

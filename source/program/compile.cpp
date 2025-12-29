@@ -3,21 +3,6 @@
 #include "lib.hpp"
 #include "loggers.hpp"
 
-extern "C" void* glslc_Alloc(size_t size) {
-    EXL_ASSERT(g_Heap != nullptr);
-    return g_Heap->tryAlloc(size, 0x10);
-}
-
-extern "C" void glslc_Free(void* address) {
-    EXL_ASSERT(g_Heap != nullptr);
-    g_Heap->free(address);
-}
-
-extern "C" void* glslc_Realloc(void* address, size_t size) {
-    EXL_ASSERT(g_Heap != nullptr);
-    return g_Heap->tryRealloc(address, size, 0x10);
-}
-
 void* Alloc(size_t size, size_t align, void* userData) {
     EXL_ASSERT(g_Heap != nullptr);
     return g_Heap->tryAlloc(size, align);

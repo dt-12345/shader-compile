@@ -4,5 +4,5 @@
 
 #include "nn.hpp"
 
-void* ReadFile(const char* path, sead::Heap* heap);
+void* ReadFile(const char* path, sead::Heap* heap, long* fileSizeOut = nullptr);
 bool WriteFile(const char* path, const void* data, size_t size);

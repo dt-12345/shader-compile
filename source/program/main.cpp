@@ -34,20 +34,31 @@ bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage
             }
         }
     }
-    if (stage == NVN_SHADER_STAGE_LARGE) {
-        Logging.Log("Failed to determine shader stage for %s", inputPath);
-        return false;
-    }
 
-    char* shaderSource = static_cast<char*>(ReadFile(inputPath, g_Heap));
+    long fileSize = 0;
+    char* shaderSource = static_cast<char*>(ReadFile(inputPath, g_Heap, &fileSize));
     if (shaderSource == nullptr) {
         Logging.Log("Failed to read %s", inputPath);
         return false;
     }
 
+    bool isSpirv;
+    u32 moduleSizes[1] = { 0 };
+    if (fileSize > 0x14 && *reinterpret_cast<u32*>(shaderSource) == cSpirvMagicNumber) {
+        moduleSizes[0] = static_cast<u32>(fileSize);
+        isSpirv = true;
+    } else {
+        isSpirv = false;
+    }
+
+    if (stage == NVN_SHADER_STAGE_LARGE && !isSpirv) {
+        Logging.Log("Failed to determine shader stage for %s", inputPath);
+        return false;
+    }
+
     bool res = false;
     const char* sources[] = { shaderSource }; const NVNshaderStage stages[] = { stage };
-    auto compileObject = Compile(sources, stages, 1);
+    auto compileObject = Compile(sources, stages, 1, isSpirv ? moduleSizes : nullptr);
     if (!compileObject.lastCompiledResults->compilationStatus->success) {
         Logging.Log("Failed to compile %s", inputPath);
     } else {
@@ -68,13 +79,21 @@ bool CompileShader(const char* const* inputPaths, const char* const* outputPaths
     char* sources[5] = {};
     NVNshaderStage stages[5] = {};
     const char* outputs[5] = {};
+    u32 moduleSizes[5] = {};
     s32 count = 0;
     bool res = false;
+    bool isSpirv = true;
     
     for (s32 i = 0; i < 5; ++i) {
         if (inputPaths[i] != nullptr && outputPaths[i] != nullptr) {
-            char* shaderSource = static_cast<char*>(ReadFile(inputPaths[i], g_Heap));
+            long fileSize = 0;
+            char* shaderSource = static_cast<char*>(ReadFile(inputPaths[i], g_Heap, &fileSize));
             if (shaderSource != nullptr) {
+                if (fileSize > 0x14 && *reinterpret_cast<u32*>(shaderSource) == cSpirvMagicNumber) {
+                    moduleSizes[count] = static_cast<u32>(fileSize);
+                } else {
+                    isSpirv = false;
+                }
                 sources[count] = shaderSource;
                 outputs[count] = outputPaths[i];
                 stages[count++] = static_cast<NVNshaderStage>(i);
@@ -85,7 +104,7 @@ bool CompileShader(const char* const* inputPaths, const char* const* outputPaths
     }
 
     Logging.Log("Compiling...");
-    auto compileObject = Compile(sources, stages, count);
+    auto compileObject = Compile(sources, stages, count, isSpirv ? moduleSizes : nullptr);
     if (!compileObject.lastCompiledResults->compilationStatus->success) {
         Logging.Log("Failed to compile shader");
     } else {

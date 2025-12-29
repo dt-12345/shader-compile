@@ -6,6 +6,10 @@ the output binary contains both the control and gpu code sections (the gpu code 
 
 shader stage is automatically detected from the file extension (`.vert`, `.tesc`, `.tese`, `.geom`, `.frag`, `.comp`) and non-compute shaders are compiled together as a program with other shaders sharing the same filename excluding the extension (glslc requires a vertex shader in the program for tesselation control/evaluation and geometry shaders)
 
+`compile_shader.py` is a utility script to compile shaders with ryujinx running in the background
+
+both SPIR-V and GLSL sources are accepted
+
 ## exlaunch README
 
 # exlaunch

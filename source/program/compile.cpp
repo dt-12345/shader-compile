@@ -22,7 +22,10 @@ void GlslcInitialize() {
     glslcSetAllocator(Alloc, Free, Realloc, nullptr);
 }
 
-GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStage* shaderStages, int shaderCount) {
+GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStage* shaderStages, int shaderCount, const u32* moduleSizes) {
+    EXL_ASSERT(shaderCount > 0);
+    EXL_ASSERT(shaderSources != nullptr && shaderStages != nullptr);
+
     GLSLCcompileObject compileObject{};
 
     if (!glslcInitialize(&compileObject)) {
@@ -41,6 +44,13 @@ GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStag
     compileObject.options.xfbVaryingInfo.varyings = nullptr;
     compileObject.options.forceIncludeStdHeader = nullptr;
     compileObject.options.includeInfo.paths = nullptr;
+
+    if (moduleSizes != nullptr) {
+        compileObject.options.optionFlags.language = GLSLC_LANGUAGE_SPIRV;
+        compileObject.input.spirvModuleSizes = moduleSizes;
+        compileObject.input.spirvEntryPointNames = nullptr;
+        compileObject.input.spirvSpecInfo = nullptr;
+    }
 
     compileObject.input.sources = shaderSources;
     compileObject.input.stages = shaderStages;

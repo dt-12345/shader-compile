@@ -39,6 +39,7 @@ void* ReadFile(const char* path, sead::Heap* heap, long* fileSizeOut) {
 }
 
 bool WriteFile(const char* path, const void* data, size_t size) {
+    Logging.Log("Writing file %s", path);
     nn::fs::FileHandle handle{};
     if (nn::fs::OpenFile(&handle, path, nn::fs::OpenMode_Write)) {
         ASSERT_RETURN(nn::fs::CreateFile(path, 0), false, false)

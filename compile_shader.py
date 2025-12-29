@@ -7,39 +7,45 @@ OUTPUT_PATH: Path = Path("sdcard/output")
 RYUJINX_PATH: Path = Path(os.environ["APPDATA"]) / Path("ryujinx")
 TIMEOUT: float = 10.0
 
-def compile_shaders(names: list[str], sources: list[bytes]) -> list[bytes]:
+def compile_shaders(names: list[str], sources: list[bytes]) -> list[tuple[bytes, bytes]]:
     inputs: list[Path] = []
-    outputs: list[Path] = []
+    outputs: list[tuple[Path, Path]] = []
     for i, name in enumerate(names):
         inputs.append(RYUJINX_PATH / INPUT_PATH / Path(name))
-        outputs.append(RYUJINX_PATH / OUTPUT_PATH / Path(f"{name}.bin"))
+        outputs.append((
+            RYUJINX_PATH / OUTPUT_PATH / Path(f"{name}.bin.control"),
+            RYUJINX_PATH / OUTPUT_PATH / Path(f"{name}.bin.code"),
+        ))
         inputs[i].write_bytes(sources[i])
     start: float = time.time()
-    while not all(os.path.exists(output) for output in outputs) and time.time() - start < TIMEOUT: ...
+    while not all(os.path.exists(output[0]) and os.path.exists(output[1]) for output in outputs) and time.time() - start < TIMEOUT: ...
     time.sleep(0.1)
-    compiled: list[bytes] = []
+    compiled: list[tuple[bytes, bytes]] = []
     try:
         for output in outputs:
-            compiled.append(output.read_bytes())
+            compiled.append((output[0].read_bytes(), output[1].read_bytes()))
     finally:
         for i in inputs:
             os.unlink(i)
         for o in outputs:
-            os.unlink(o)
+            os.unlink(o[0])
+            os.unlink(o[1])
     return compiled
 
-def compile_shader(name: str, source: bytes) -> bytes:
+def compile_shader(name: str, source: bytes) -> tuple[bytes, bytes]:
     input: Path = RYUJINX_PATH / INPUT_PATH / Path(name)
-    output: Path = RYUJINX_PATH / OUTPUT_PATH / Path(f"{name}.bin")
+    control: Path = RYUJINX_PATH / OUTPUT_PATH / Path(f"{name}.bin.control")
+    code: Path = RYUJINX_PATH / OUTPUT_PATH / Path(f"{name}.bin.code")
     input.write_bytes(source)
     start: float = time.time()
-    while not os.path.exists(output) and time.time() - start < TIMEOUT: ...
+    while not os.path.exists(control) and not os.path.exists(code) and time.time() - start < TIMEOUT: ...
     time.sleep(0.1)
     try:
-        compiled: bytes = output.read_bytes()
+        compiled: tuple[bytes, bytes] = (control.read_bytes(), code.read_bytes())
     finally:
         os.unlink(input)
-        os.unlink(output)
+        os.unlink(control)
+        os.unlink(code)
     return compiled
 
 def main() -> None:
@@ -70,16 +76,14 @@ def main() -> None:
         source: bytes = Path(path).read_bytes()
         basename: str = os.path.basename(path)
 
-        compiled: bytes = compile_shader(basename, source)
+        compiled: tuple[bytes, bytes] = compile_shader(basename, source)
 
-        with open(os.path.join(output, f"{basename}.bin"), "wb") as f:
-            f.write(compiled)
         with open(os.path.join(output, f"{basename}.bin.ctrl"), "wb") as f:
-            f.write(compiled[:0x880])
+            f.write(compiled[0])
         with open(os.path.join(output, f"{basename}.bin.code"), "wb") as f:
-            f.write(compiled[0x880:])
+            f.write(compiled[1])
         with open(os.path.join(output, f"{basename}.bin.code.nv"), "wb") as f:
-            f.write(compiled[0x880+0x30:])
+            f.write(compiled[1][0x30:])
     else:
         sources: list[bytes] = []
         basenames: list[str] = []
@@ -87,17 +91,15 @@ def main() -> None:
             sources.append(Path(path).read_bytes())
             basenames.append(os.path.basename(path))
         
-        compiled: list[bytes] = compile_shaders(basenames, sources)
+        compiled: list[tuple[bytes, bytes]] = compile_shaders(basenames, sources)
 
         for i in range(len(sources)):
-            with open(os.path.join(output, f"{basenames[i]}.bin"), "wb") as f:
-                f.write(compiled[i])
             with open(os.path.join(output, f"{basenames[i]}.bin.ctrl"), "wb") as f:
-                f.write(compiled[i][:0x880])
+                f.write(compiled[i][0])
             with open(os.path.join(output, f"{basenames[i]}.bin.code"), "wb") as f:
-                f.write(compiled[i][0x880:])
+                f.write(compiled[i][1])
             with open(os.path.join(output, f"{basenames[i]}.bin.code.nv"), "wb") as f:
-                f.write(compiled[i][0x880+0x30:])
+                f.write(compiled[i][1][0x30:])
 
 if __name__ == "__main__":
     main()

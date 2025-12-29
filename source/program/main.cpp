@@ -22,6 +22,11 @@ bool EndsWith(const char* str, const char* suffix) {
     return strncmp(str + strSize - suffixSize, suffix, suffixSize) == 0;
 }
 
+void Concat(char* buffer, size_t bufferSize, const char* basePath, const char* extension) {
+    const s32 size = nn::util::SNPrintf(buffer, bufferSize, "%s%s", basePath, extension);
+    buffer[size] = '\0';
+}
+
 bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage stage = NVN_SHADER_STAGE_LARGE) {
     EXL_ASSERT(g_Heap != nullptr);
     EXL_ASSERT(inputPath != nullptr && outputPath != nullptr);
@@ -62,9 +67,20 @@ bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage
     if (!compileObject.lastCompiledResults->compilationStatus->success) {
         Logging.Log("Failed to compile %s", inputPath);
     } else {
-        const auto* binPtr = compileObject.lastCompiledResults->glslcOutput;
-        const char* outputData = reinterpret_cast<const char*>(binPtr) + binPtr->headers[0].genericHeader.common.dataOffset;
-        res = WriteFile(outputPath, outputData, binPtr->headers[0].genericHeader.common.size);
+        // the proper way to do this would be to iterate through all the headers and check which one is the gpu header
+        // but we should only be outputting the gpu section anyways so I think this is fine
+        const auto* glslcOutput = compileObject.lastCompiledResults->glslcOutput;
+        const auto* binPtr = reinterpret_cast<const char*>(glslcOutput) + glslcOutput->headers[0].gpuCodeHeader.common.dataOffset;
+
+        const char* control = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[0].gpuCodeHeader.controlOffset;
+        char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
+        Concat(controlPath, sizeof(controlPath), outputPath, ".control");
+        res = WriteFile(controlPath, control, glslcOutput->headers[0].gpuCodeHeader.controlSize);
+
+        const char* code = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[0].gpuCodeHeader.dataOffset;
+        char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
+        Concat(codePath, sizeof(codePath), outputPath, ".code");
+        res = WriteFile(codePath, code, glslcOutput->headers[0].gpuCodeHeader.dataSize);
     }
 
     glslcFinalize(&compileObject);
@@ -111,9 +127,18 @@ bool CompileShader(const char* const* inputPaths, const char* const* outputPaths
         res = true;
         for (s32 i = 0; i < count; ++i) {
             if (outputs[i] != nullptr) {
-                const auto* binPtr = compileObject.lastCompiledResults->glslcOutput;
-                const char* outputData = reinterpret_cast<const char*>(binPtr) + binPtr->headers[i].genericHeader.common.dataOffset;
-                res = WriteFile(outputs[i], outputData, binPtr->headers[i].genericHeader.common.size) && res;
+                const auto* glslcOutput = compileObject.lastCompiledResults->glslcOutput;
+                const auto* binPtr = reinterpret_cast<const char*>(glslcOutput) + glslcOutput->headers[i].gpuCodeHeader.common.dataOffset;
+        
+                const char* control = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[i].gpuCodeHeader.controlOffset;
+                char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
+                Concat(controlPath, sizeof(controlPath), outputs[i], ".control");
+                res = WriteFile(controlPath, control, glslcOutput->headers[i].gpuCodeHeader.controlSize);
+
+                const char* code = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[i].gpuCodeHeader.dataOffset;
+                char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
+                Concat(codePath, sizeof(codePath), outputs[i], ".code");
+                res = WriteFile(codePath, code, glslcOutput->headers[i].gpuCodeHeader.dataSize);
             }
         }
     }
@@ -196,8 +221,17 @@ HOOK_DEFINE_INLINE(AppMain) {
                             inputs[j] = outputs[j] = nullptr;
                             continue;
                         }
+                        char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
+                        char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
+                        Concat(controlPath, sizeof(controlPath), outputs[j], ".control");
+                        Concat(codePath, sizeof(codePath), outputs[j], ".code");
                         nn::fs::FileHandle outputHandle{};
-                        if (nn::fs::OpenFile(&outputHandle, outputs[j], nn::fs::OpenMode_Read) == 0) {
+                        if (nn::fs::OpenFile(&outputHandle, controlPath, nn::fs::OpenMode_Read) == 0) {
+                            nn::fs::CloseFile(outputHandle);
+                        } else {
+                            allExists = false;
+                        }
+                        if (nn::fs::OpenFile(&outputHandle, codePath, nn::fs::OpenMode_Read) == 0) {
                             nn::fs::CloseFile(outputHandle);
                         } else {
                             allExists = false;
@@ -224,10 +258,17 @@ HOOK_DEFINE_INLINE(AppMain) {
                     outputPath[outputPathSize] = '\0';
 
                     // check if file already exists
+                    char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
+                    char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
+                    Concat(controlPath, sizeof(controlPath), outputPath, ".control");
+                    Concat(codePath, sizeof(codePath), outputPath, ".code");
                     nn::fs::FileHandle outputHandle{};
-                    if (nn::fs::OpenFile(&outputHandle, outputPath, nn::fs::OpenMode_Read) == 0) {
+                    if (nn::fs::OpenFile(&outputHandle, controlPath, nn::fs::OpenMode_Read) == 0) {
                         nn::fs::CloseFile(outputHandle);
-                        continue;
+                        if (nn::fs::OpenFile(&outputHandle, codePath, nn::fs::OpenMode_Read) == 0) {
+                            nn::fs::CloseFile(outputHandle);
+                            continue;
+                        }
                     }
 
                     Logging.Log("Compiling %s", file.m_Name);

@@ -4,7 +4,7 @@
 #include <heap/seadHeap.h>
 
 void GlslcInitialize();
-const GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStage* shaderStages, int shaderCount);
+GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStage* shaderStages, int shaderCount);
 
 inline sead::Heap* g_Heap = nullptr;
 

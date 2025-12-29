@@ -34,10 +34,11 @@ bool CompileShader(const std::string inputPath, const std::string outputPath, NV
     }
 
     const char* sources[] = { shaderSource }; const NVNshaderStage stages[] = { stage };
-    const auto compileObject = Compile(sources, stages, 1);
+    auto compileObject = Compile(sources, stages, 1);
     if (!compileObject.lastCompiledResults->compilationStatus->success) {
         Logging.Log("Failed to compile %s", inputPath.c_str());
         g_Heap->free(shaderSource);
+        glslcFinalize(&compileObject);
         return false;
     }
 
@@ -45,7 +46,9 @@ bool CompileShader(const std::string inputPath, const std::string outputPath, NV
     const auto* binPtr = compileObject.lastCompiledResults->glslcOutput;
     const char* outputData = reinterpret_cast<const char*>(binPtr) + binPtr->headers[0].genericHeader.common.dataOffset;
     
-    return WriteFile(outputPath.c_str(), outputData, binPtr->headers[0].genericHeader.common.size);
+    const bool res = WriteFile(outputPath.c_str(), outputData, binPtr->headers[0].genericHeader.common.size);
+    glslcFinalize(&compileObject);
+    return res;
 }
 
 HOOK_DEFINE_REPLACE(OperatorNewReplacement) {

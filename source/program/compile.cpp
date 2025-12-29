@@ -37,7 +37,7 @@ void GlslcInitialize() {
     glslcSetAllocator(Alloc, Free, Realloc, nullptr);
 }
 
-const GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStage* shaderStages, int shaderCount) {
+GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStage* shaderStages, int shaderCount) {
     GLSLCcompileObject compileObject{};
 
     if (!glslcInitialize(&compileObject)) {

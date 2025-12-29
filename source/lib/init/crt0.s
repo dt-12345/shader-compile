@@ -17,7 +17,7 @@
 .global __module_start
 __module_start:
     // newer rtld versions check the first four bytes to determine the version
-    // 0, `b #0x8` (arm), or `b #0xc` (aarch64) are treated as the older version anything else is treated as the new version
+    // 0, `b #0x8` (arm), or `b #0x8` (aarch64) are treated as the older version anything else is treated as the new version
     // older versions of rtld appear to not care about what comes after the module header offset
     b entrypoint
     .word __nx_mod0 - __module_start
@@ -91,16 +91,21 @@ bss_loop:
 .align 2
 __nx_mod0:
     .ascii "MOD0"
-    .word  __dynamic_start__        - __nx_mod0
-    .word  __bss_start__            - __nx_mod0
-    .word  __bss_end__              - __nx_mod0
-    .word  __eh_frame_hdr_start__   - __nx_mod0
-    .word  __eh_frame_hdr_end__     - __nx_mod0
-    .word  exl_nx_module_runtime    - __nx_mod0
-    // newer versions have a longer module header, but the other fields aren't directly used so we can ignore them
+    .word  __dynamic_start__            - __nx_mod0
+    .word  __bss_start__                - __nx_mod0
+    .word  __bss_end__                  - __nx_mod0
+    .word  __eh_frame_hdr_start__       - __nx_mod0
+    .word  __eh_frame_hdr_end__         - __nx_mod0
+    .word  exl_nx_module_runtime        - __nx_mod0
+    .word   __relro_start__             - __nx_mod0
+    .word   __full_relro_end__          - __nx_mod0
+    .word   __module_name_start__       - __nx_mod0
+    .word   __module_name_end__         - __nx_mod0
+    .word   __note_gnu_build_id_start__ - __nx_mod0
+    .word   __note_gnu_build_id_end__   - __nx_mod0
 
-// sdk version (unused so it doesn't actually matter what's here)
+// this will only be checked if something throws an exception
 __sdk_version:
-    .word   69
-    .word   420
-    .word   69
+    .word   20
+    .word   5
+    .word   6

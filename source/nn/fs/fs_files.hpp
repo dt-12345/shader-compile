@@ -63,6 +63,13 @@ namespace nn::fs {
     Result ReadFile(ulong* bytesRead, FileHandle handle, long position, void* buffer, const ReadOption& option);
 
     /*
+        Sets the size of the file.
+        handle: Handle representing file to set.
+        size:   File size.
+    */
+   Result SetFileSize(nn::fs::FileHandle handle, long size);
+
+    /*
         Gets the size of the file.
         size:   File size.
         handle: Handle representing file to check.

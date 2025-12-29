@@ -1,6 +1,6 @@
 {
 	"name": "Application",
-	"title_id": "0x0100801011c3e000",
+	"title_id": "0x0100f2c0115b6000",
 	"title_id_range_min": "0x0100000000010000",
 	"title_id_range_max": "0x01ffffffffffffff",
 	"main_thread_stack_size": "0x00100000",
@@ -10,10 +10,13 @@
 	"is_retail": true,
 	"pool_partition": 0,
 	"is_64_bit": true,
+	"disable_device_address_space_merge":	true,
+	"optimize_memory_allocation":	true,
 	"address_space_type": 3,
 	"filesystem_access": {
 		"permissions": "0xffffffffffffffff"
 	},
+	"service_host": [],
 	"service_access": [
 		"acc:u0",
 		"aoc:u",
@@ -60,7 +63,7 @@
 		"time:u",
 		"vi:u"
 	],
-	"service_host": [],
+	"system_resource_size":	"0x1800000",
 	"kernel_capabilities": [
 		{
 			"type": "kernel_flags",
@@ -220,7 +223,7 @@
 		{
 			"type": "debug_flags",
 			"value": {
-				"allow_debug": false,
+				"allow_debug": true,
 				"force_debug": false,
 				"force_debug_prod": false
 			}

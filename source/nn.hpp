@@ -1,5 +1,7 @@
 #pragma once
 
+#include "libsetting.hpp"
+
 /* nnSdk is only available when loaded as a module. */
 #ifndef EXL_AS_MODULE
 #error "Cannot use nnSdk when not as a module!"

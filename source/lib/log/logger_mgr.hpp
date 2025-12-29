@@ -8,6 +8,8 @@
 #include <string_view>
 #include <common.hpp>
 
+#include <nn/util/util_sprintf.hpp>
+
 #include <program/setting.hpp>
 
 #define EXL_LOG_PREFIX "[" EXL_MODULE_NAME "|exlaunch] "
@@ -55,7 +57,7 @@ namespace exl::log {
         template<typename... Args>
         ALWAYS_INLINE void Log(const char* fmt, Args&&... args) {
             char buffer[setting::LogBufferSize];
-            size_t length = std::snprintf(buffer, sizeof(buffer), fmt, std::forward<Args>(args)...);
+            size_t length = nn::util::SNPrintf(buffer, sizeof(buffer), fmt, std::forward<Args>(args)...);
             length = std::min(length, sizeof(buffer)-1);
             buffer[length] = '\0';
 
@@ -65,7 +67,7 @@ namespace exl::log {
         template<typename... Args>
         ALWAYS_INLINE void VLog(const char* fmt, std::va_list vl) {
             char buffer[setting::LogBufferSize];
-            size_t length = std::vsnprintf(buffer, sizeof(buffer), fmt, vl);
+            size_t length = nn::util::VSNPrintf(buffer, sizeof(buffer), fmt, vl);
             length = std::min(length, sizeof(buffer)-1);
             buffer[length] = '\0';
 

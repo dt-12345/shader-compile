@@ -1,10 +1,10 @@
 #include "file.hpp"
 #include "loggers.hpp"
 
-#define ASSERT_RETURN(result, ret)                       \
+#define ASSERT_RETURN(result, ret)                  \
     if (result != 0) {                              \
         Logging.Log("Error result for " #result);   \
-        return ret;                               \
+        return ret;                                 \
     }
 
 void* ReadFile(const char* path, sead::Heap* heap) {

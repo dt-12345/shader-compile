@@ -237,6 +237,7 @@ HOOK_DEFINE_INLINE(AppMain) {
                             nn::fs::CloseFile(outputHandle);
                         } else {
                             allExists = false;
+                            break;
                         }
                     }
 

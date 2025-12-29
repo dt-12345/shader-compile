@@ -52,7 +52,7 @@ GLSLCcompileObject Compile(const char* const* shaderSources, const NVNshaderStag
         } else {
             Logging.Log("glslcCompile failed!");
         }
-        Logging.Log("Compilation InfoLog:\n%s", compileObject.lastCompiledResults->compilationStatus->infoLog);
+        Logging.Log(compileObject.lastCompiledResults->compilationStatus->infoLog);
         return compileObject;
     }
 

@@ -160,11 +160,19 @@ HOOK_DEFINE_REPLACE(OperatorNewReplacement) {
     }
 };
 
+HOOK_DEFINE_REPLACE(OperatorDeleteReplacement) {
+    static void Callback(void* address) {
+        EXL_ASSERT(g_Heap != nullptr);
+        g_Heap->free(address);
+    }
+};
+
 HOOK_DEFINE_INLINE(AppMain) {
     static void Callback(exl::hook::InlineCtx* ctx) {
         // steal application root heap (we're blocking the entire program anyways so it doesn't matter)
         g_Heap = reinterpret_cast<sead::Heap*>(ctx->X[19]);
         OperatorNewReplacement::InstallAtOffset(0x01062ce0);
+        OperatorDeleteReplacement::InstallAtOffset(0x00cf43d0);
         GlslcInitialize();
 
         EXL_ABORT_UNLESS(nn::fs::MountSdCard("sd") == 0);

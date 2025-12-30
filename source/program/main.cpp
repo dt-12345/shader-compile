@@ -8,7 +8,7 @@ static constexpr const char* sShaderExtensions[] = {
     ".vert", ".frag", ".geom", ".tesc", ".tese", ".comp",
 };
 
-bool EndsWith(const char* str, const char* suffix) {
+static bool EndsWith(const char* str, const char* suffix) {
     if (str == nullptr || suffix == nullptr) {
         return false;
     }
@@ -22,12 +22,43 @@ bool EndsWith(const char* str, const char* suffix) {
     return strncmp(str + strSize - suffixSize, suffix, suffixSize) == 0;
 }
 
-void Concat(char* buffer, size_t bufferSize, const char* basePath, const char* extension) {
+static void Concat(char* buffer, size_t bufferSize, const char* basePath, const char* extension) {
     const s32 size = nn::util::SNPrintf(buffer, bufferSize, "%s%s", basePath, extension);
     buffer[size] = '\0';
 }
 
-bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage stage = NVN_SHADER_STAGE_LARGE) {
+static bool OutputShaderBinary(const GLSLCoutput* glslcOutput, const char* outputPath, NVNshaderStage stage) {
+    for (u32 i = 0; i < glslcOutput->numSections; ++i) {
+        if (glslcOutput->headers[i].genericHeader.common.type != GLSLC_SECTION_TYPE_GPU_CODE) {
+            continue;
+        }
+
+        // if we don't know the stage, then just output the first binary
+        if (stage != NVN_SHADER_STAGE_LARGE && glslcOutput->headers[i].gpuCodeHeader.stage != stage) {
+            continue;
+        }
+
+        const auto* binPtr = reinterpret_cast<const char*>(glslcOutput) + glslcOutput->headers[i].gpuCodeHeader.common.dataOffset;
+    
+        bool res = true;
+
+        const char* control = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[i].gpuCodeHeader.controlOffset;
+        char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
+        Concat(controlPath, sizeof(controlPath), outputPath, ".control");
+        res = WriteFile(controlPath, control, glslcOutput->headers[i].gpuCodeHeader.controlSize) && res;
+    
+        const char* code = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[i].gpuCodeHeader.dataOffset;
+        char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
+        Concat(codePath, sizeof(codePath), outputPath, ".code");
+        res = WriteFile(codePath, code, glslcOutput->headers[i].gpuCodeHeader.dataSize) && res;
+
+        return res;
+    }
+
+    return false;
+}
+
+static bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage stage = NVN_SHADER_STAGE_LARGE) {
     EXL_ASSERT(g_Heap != nullptr);
     EXL_ASSERT(inputPath != nullptr && outputPath != nullptr);
 
@@ -67,20 +98,7 @@ bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage
     if (!compileObject.lastCompiledResults->compilationStatus->success) {
         Logging.Log("Failed to compile %s", inputPath);
     } else {
-        // the proper way to do this would be to iterate through all the headers and check which one is the gpu header
-        // but we should only be outputting the gpu section anyways so I think this is fine
-        const auto* glslcOutput = compileObject.lastCompiledResults->glslcOutput;
-        const auto* binPtr = reinterpret_cast<const char*>(glslcOutput) + glslcOutput->headers[0].gpuCodeHeader.common.dataOffset;
-
-        const char* control = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[0].gpuCodeHeader.controlOffset;
-        char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
-        Concat(controlPath, sizeof(controlPath), outputPath, ".control");
-        res = WriteFile(controlPath, control, glslcOutput->headers[0].gpuCodeHeader.controlSize);
-
-        const char* code = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[0].gpuCodeHeader.dataOffset;
-        char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
-        Concat(codePath, sizeof(codePath), outputPath, ".code");
-        res = WriteFile(codePath, code, glslcOutput->headers[0].gpuCodeHeader.dataSize);
+        res = OutputShaderBinary(compileObject.lastCompiledResults->glslcOutput, outputPath, stage) && res;
     }
 
     glslcFinalize(&compileObject);
@@ -88,7 +106,7 @@ bool CompileShader(const char* inputPath, const char* outputPath, NVNshaderStage
     return res;
 }
 
-bool CompileShader(const char* const* inputPaths, const char* const* outputPaths) {
+static bool CompileShader(const char* const* inputPaths, const char* const* outputPaths) {
     EXL_ASSERT(g_Heap != nullptr);
     EXL_ASSERT(inputPaths != nullptr && outputPaths != nullptr);
 
@@ -127,18 +145,7 @@ bool CompileShader(const char* const* inputPaths, const char* const* outputPaths
         res = true;
         for (s32 i = 0; i < count; ++i) {
             if (outputs[i] != nullptr) {
-                const auto* glslcOutput = compileObject.lastCompiledResults->glslcOutput;
-                const auto* binPtr = reinterpret_cast<const char*>(glslcOutput) + glslcOutput->headers[i].gpuCodeHeader.common.dataOffset;
-        
-                const char* control = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[i].gpuCodeHeader.controlOffset;
-                char controlPath[nn::fs::MaxDirectoryEntryNameSize + 1];
-                Concat(controlPath, sizeof(controlPath), outputs[i], ".control");
-                res = WriteFile(controlPath, control, glslcOutput->headers[i].gpuCodeHeader.controlSize);
-
-                const char* code = reinterpret_cast<const char*>(binPtr) + glslcOutput->headers[i].gpuCodeHeader.dataOffset;
-                char codePath[nn::fs::MaxDirectoryEntryNameSize + 1];
-                Concat(codePath, sizeof(codePath), outputs[i], ".code");
-                res = WriteFile(codePath, code, glslcOutput->headers[i].gpuCodeHeader.dataSize);
+                res = OutputShaderBinary(compileObject.lastCompiledResults->glslcOutput, outputs[i], stages[i]) && res;
             }
         }
     }

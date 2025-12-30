@@ -98,7 +98,7 @@ static bool CompileShader(const char* inputPath, const char* outputPath, NVNshad
     if (!compileObject.lastCompiledResults->compilationStatus->success) {
         Logging.Log("Failed to compile %s", inputPath);
     } else {
-        res = OutputShaderBinary(compileObject.lastCompiledResults->glslcOutput, outputPath, stage) && res;
+        res = OutputShaderBinary(compileObject.lastCompiledResults->glslcOutput, outputPath, stage);
     }
 
     glslcFinalize(&compileObject);

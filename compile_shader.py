@@ -35,11 +35,17 @@ def compile_shaders(names: list[str], sources: list[bytes]) -> list[tuple[bytes,
 def get_shader_size(control: bytes) -> int:
     return int.from_bytes(control[0x6f8:0x6fc], "little")
 
+def get_shader_offset(control: bytes) -> int:
+    return int.from_bytes(control[0x708:0x70c], "little")
+
 def get_constbuf_size(control: bytes) -> int:
     return int.from_bytes(control[0x6fc:0x700], "little")
 
 def get_constbuf_offset(control: bytes) -> int:
     return int.from_bytes(control[0x700:0x704], "little")
+
+def is_compute(control: bytes) -> bool:
+    return int.from_bytes(control[0x714:0x718], "little") == 5 # NVN_SHADER_STAGE_COMPUTE
 
 def compile_shader(name: str, source: bytes) -> tuple[bytes, bytes]:
     input: Path = RYUJINX_PATH / INPUT_PATH / Path(name)
@@ -98,11 +104,18 @@ def main() -> None:
             f.write(compiled[1])
         for format in formats:
             if format == "nv":
+                shader_size: int = get_shader_size(compiled[0])
+                shader_offset: int = get_shader_offset(compiled[0])
                 with open(os.path.join(output, f"{basename}.bin.code.nv"), "wb") as f:
-                    f.write(compiled[1][0x30:0x30+get_shader_size(compiled[0])])
+                    f.write(compiled[1][shader_offset:shader_offset+shader_size])
             elif format == "raw":
+                shader_size: int = get_shader_size(compiled[0])
+                shader_offset: int = get_shader_offset(compiled[0])
                 with open(os.path.join(output, f"{basename}.bin.code.raw"), "wb") as f:
-                    f.write(compiled[1][0x80:0x30+get_shader_size(compiled[0])])
+                    if is_compute(compiled[0]): # compute shaders don't have the shader program header
+                        f.write(compiled[1][shader_offset:shader_offset+shader_size])
+                    else:
+                        f.write(compiled[1][shader_offset+0x50:shader_offset+shader_size])
             elif format == "constbuf":
                 constbuf_size: int = get_constbuf_size(compiled[0])
                 constbuf_offset: int = get_constbuf_offset(compiled[0])
@@ -127,11 +140,18 @@ def main() -> None:
                 f.write(compiled[i][1])
             for format in formats:
                 if format == "nv":
+                    shader_size: int = get_shader_size(compiled[i][0])
+                    shader_offset: int = get_shader_offset(compiled[i][0])
                     with open(os.path.join(output, f"{basenames[i]}.bin.code.nv"), "wb") as f:
-                        f.write(compiled[i][1][0x30:0x30+get_shader_size(compiled[i][0])])
+                        f.write(compiled[i][1][shader_offset:shader_offset+shader_size])
                 elif format == "raw":
+                    shader_size: int = get_shader_size(compiled[i][0])
+                    shader_offset: int = get_shader_offset(compiled[i][0])
                     with open(os.path.join(output, f"{basenames[i]}.bin.code.raw"), "wb") as f:
-                        f.write(compiled[i][1][0x80:0x30+get_shader_size(compiled[i][0])])
+                        if is_compute(compiled[i][0]):
+                            f.write(compiled[i][1][shader_offset:shader_offset+shader_size])
+                        else:
+                            f.write(compiled[i][1][shader_offset+0x50:shader_offset+shader_size])
                 elif format == "constbuf":
                     constbuf_size: int = get_constbuf_size(compiled[i][0])
                     constbuf_offset: int = get_constbuf_offset(compiled[i][0])
